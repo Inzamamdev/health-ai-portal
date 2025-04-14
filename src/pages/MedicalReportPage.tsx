@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import MainLayout from "@/layouts/MainLayout";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,6 +24,15 @@ const MedicalReportPage = () => {
     setUploading(true);
     
     try {
+      // Check if user is authenticated
+      const { data: sessionData } = await supabase.auth.getSession();
+      
+      if (!sessionData.session) {
+        toast.error("You need to be logged in to analyze reports");
+        setUploading(false);
+        return;
+      }
+      
       const fileReader = new FileReader();
       fileReader.onload = async () => {
         try {
@@ -30,7 +40,7 @@ const MedicalReportPage = () => {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+              'Authorization': `Bearer ${sessionData.session?.access_token}`
             },
             body: JSON.stringify({
               prompt: `Analyze this medical report: ${fileReader.result}`,
@@ -38,18 +48,23 @@ const MedicalReportPage = () => {
             })
           });
 
+          if (!response.ok) {
+            throw new Error(`Error calling AI analysis: ${response.statusText}`);
+          }
+
           const data = await response.json();
           setAnalysis(data.generatedText);
           toast.success("Report analyzed successfully");
         } catch (error) {
-          toast.error("Failed to analyze report");
-          console.error(error);
+          console.error("Error analyzing report:", error);
+          toast.error("Failed to analyze report. Please try again later.");
         } finally {
           setUploading(false);
         }
       };
       fileReader.readAsText(selectedFile);
     } catch (error) {
+      console.error("Error processing file:", error);
       toast.error("Error processing file");
       setUploading(false);
     }

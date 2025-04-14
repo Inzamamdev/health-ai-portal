@@ -4,6 +4,8 @@ import MainLayout from "@/layouts/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Send } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const ChatbotPage = () => {
   const [messages, setMessages] = useState<{
@@ -19,9 +21,10 @@ const ChatbotPage = () => {
   ]);
 
   const [inputValue, setInputValue] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSendMessage = () => {
-    if (!inputValue.trim()) return;
+  const handleSendMessage = async () => {
+    if (!inputValue.trim() || isLoading) return;
 
     const newUserMessage = {
       content: inputValue,
@@ -31,16 +34,70 @@ const ChatbotPage = () => {
     
     setMessages(prevMessages => [...prevMessages, newUserMessage]);
     setInputValue("");
+    setIsLoading(true);
     
-    // Simulate AI response
-    setTimeout(() => {
+    try {
+      // Get the current session
+      const { data: sessionData } = await supabase.auth.getSession();
+      
+      if (!sessionData.session) {
+        toast.error("You need to be logged in to use the chatbot");
+        setIsLoading(false);
+        return;
+      }
+
+      // Call the AI analysis edge function
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-analysis`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${sessionData.session.access_token}`
+        },
+        body: JSON.stringify({
+          prompt: inputValue,
+          type: 'chat'
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to get AI response: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      // Save the conversation to the database
+      await supabase.from('chat_history').insert([
+        { role: 'user', content: inputValue, user_id: sessionData.session.user.id }
+      ]);
+
+      // Create AI response message
       const newAIMessage = {
-        content: "I understand your concern. Based on the symptoms you've described, this could be related to several conditions. However, I'd need more information to provide a better assessment. Could you please tell me if you're experiencing any other symptoms?",
+        content: data.generatedText,
         role: "assistant" as const,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
+
+      // Save AI response to database
+      await supabase.from('chat_history').insert([
+        { role: 'assistant', content: data.generatedText, user_id: sessionData.session.user.id }
+      ]);
+
       setMessages(prevMessages => [...prevMessages, newAIMessage]);
-    }, 1000);
+    } catch (error) {
+      console.error("Error sending message:", error);
+      toast.error("Failed to get a response. Please try again.");
+      
+      // Add error message
+      const errorMessage = {
+        content: "I'm sorry, I couldn't process your request. Please try again later.",
+        role: "assistant" as const,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+      
+      setMessages(prevMessages => [...prevMessages, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const commonTopics = [
@@ -53,6 +110,10 @@ const ChatbotPage = () => {
     "Joint Pain",
     "Breathing Difficulties"
   ];
+
+  const handleTopicClick = (topic: string) => {
+    setInputValue(`I have questions about ${topic}`);
+  };
 
   return (
     <MainLayout>
@@ -92,6 +153,7 @@ const ChatbotPage = () => {
                       <button
                         key={index}
                         className="w-full text-left p-3 bg-gray-50 hover:bg-gray-100 rounded-md text-sm font-medium transition-colors"
+                        onClick={() => handleTopicClick(topic)}
                       >
                         {topic}
                       </button>
@@ -142,10 +204,12 @@ const ChatbotPage = () => {
                     }}
                     className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                     placeholder="Type your health concern..."
+                    disabled={isLoading}
                   />
                   <Button
                     onClick={handleSendMessage}
                     className="bg-primary hover:bg-primary/90"
+                    disabled={isLoading}
                   >
                     <Send className="h-4 w-4" />
                   </Button>
