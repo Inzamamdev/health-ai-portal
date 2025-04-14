@@ -1,9 +1,10 @@
-
 import { useState } from "react";
 import MainLayout from "@/layouts/MainLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Upload, FileText, Pill, Microscope, FilePlus2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const MedicalReportPage = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -16,18 +17,42 @@ const MedicalReportPage = () => {
     }
   };
 
-  const handleUpload = () => {
+  const handleAnalyze = async () => {
     if (!selectedFile) return;
     
     setUploading(true);
     
-    // Simulate AI analysis
-    setTimeout(() => {
-      setAnalysis(
-        "Based on the uploaded medical report, we've detected normal blood count levels with slightly elevated cholesterol (210 mg/dL). Your liver function tests are within normal ranges. We recommend maintaining a healthy diet low in saturated fats and regular exercise. Consider discussing with your doctor during your next visit if cholesterol levels remain elevated."
-      );
+    try {
+      const fileReader = new FileReader();
+      fileReader.onload = async () => {
+        try {
+          const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-analysis`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+            },
+            body: JSON.stringify({
+              prompt: `Analyze this medical report: ${fileReader.result}`,
+              type: 'medical-report'
+            })
+          });
+
+          const data = await response.json();
+          setAnalysis(data.generatedText);
+          toast.success("Report analyzed successfully");
+        } catch (error) {
+          toast.error("Failed to analyze report");
+          console.error(error);
+        } finally {
+          setUploading(false);
+        }
+      };
+      fileReader.readAsText(selectedFile);
+    } catch (error) {
+      toast.error("Error processing file");
       setUploading(false);
-    }, 2000);
+    }
   };
 
   const reportTypes = [
@@ -59,7 +84,7 @@ const MedicalReportPage = () => {
         <div className="max-w-5xl mx-auto">
           <h1 className="text-3xl font-bold mb-2">Medical Report Analysis</h1>
           <p className="text-gray-600 mb-8">
-            Upload your medical reports and get instant insights. Our AI analyzes your reports and provides clear explanations and personalized recommendations.
+            Upload your medical reports and get instant AI-powered insights and recommendations.
           </p>
 
           <div className="bg-white rounded-lg border shadow-sm p-8 mb-12">
@@ -98,7 +123,7 @@ const MedicalReportPage = () => {
                 type="file"
                 id="file-upload"
                 className="hidden"
-                accept=".pdf,.jpg,.jpeg,.png"
+                accept=".pdf,.jpg,.jpeg,.png,.txt"
                 onChange={handleFileChange}
               />
               <label htmlFor="file-upload">
@@ -112,7 +137,7 @@ const MedicalReportPage = () => {
               </label>
               
               <Button 
-                onClick={handleUpload}
+                onClick={handleAnalyze}
                 disabled={!selectedFile || uploading}
                 className="bg-primary hover:bg-primary/90"
               >
@@ -124,7 +149,7 @@ const MedicalReportPage = () => {
           {analysis && (
             <Card className="mb-12 border-primary">
               <CardContent className="p-6">
-                <h2 className="text-xl font-semibold mb-4">Analysis Results</h2>
+                <h2 className="text-xl font-semibold mb-4">AI Analysis Results</h2>
                 <div className="p-4 bg-blue-50 rounded-lg">
                   <p className="text-gray-800">{analysis}</p>
                 </div>

@@ -1,13 +1,46 @@
 
-import { Link } from "react-router-dom";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import Logo from "@/components/shared/Logo";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const LoginPage = () => {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const navigate = useNavigate();
+
+  const handleEmailLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      toast.success("Logged in successfully");
+      navigate("/");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Login failed");
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { 
+          redirectTo: window.location.origin 
+        }
+      });
+      if (error) throw error;
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Google Sign-In failed");
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <Card className="w-full max-w-md">
@@ -21,10 +54,17 @@ const LoginPage = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-4">
+          <form onSubmit={handleEmailLogin} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" placeholder="name@example.com" type="email" />
+              <Input 
+                id="email" 
+                placeholder="name@example.com" 
+                type="email" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required 
+              />
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -33,10 +73,16 @@ const LoginPage = () => {
                   Forgot password?
                 </Link>
               </div>
-              <Input id="password" type="password" />
+              <Input 
+                id="password" 
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required 
+              />
             </div>
-            <Button className="w-full">Sign In</Button>
-          </div>
+            <Button type="submit" className="w-full">Sign In</Button>
+          </form>
           
           <div className="relative my-4">
             <div className="absolute inset-0 flex items-center">
@@ -48,6 +94,19 @@ const LoginPage = () => {
           </div>
           
           <div className="grid grid-cols-2 gap-4">
+            <Button 
+              variant="outline" 
+              className="w-full"
+              onClick={handleGoogleSignIn}
+            >
+              <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
+                <path
+                  d="M20.283 10.356h-8.327v3.451h4.792c-.446 2.193-2.313 3.453-4.792 3.453a5.27 5.27 0 0 1-5.279-5.28 5.27 5.27 0 0 1 5.279-5.279c1.259 0 2.397.447 3.29 1.178l2.6-2.599c-1.584-1.381-3.615-2.233-5.89-2.233a8.908 8.908 0 0 0-8.934 8.934 8.907 8.907 0 0 0 8.934 8.934c4.467 0 8.529-3.249 8.529-8.934 0-.528-.081-1.097-.202-1.625z"
+                  fill="currentColor"
+                />
+              </svg>
+              Google
+            </Button>
             <Button variant="outline" className="w-full">
               <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
                 <path
@@ -56,15 +115,6 @@ const LoginPage = () => {
                 />
               </svg>
               GitHub
-            </Button>
-            <Button variant="outline" className="w-full">
-              <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
-                <path
-                  d="M20.283 10.356h-8.327v3.451h4.792c-.446 2.193-2.313 3.453-4.792 3.453a5.27 5.27 0 0 1-5.279-5.28 5.27 5.27 0 0 1 5.279-5.279c1.259 0 2.397.447 3.29 1.178l2.6-2.599c-1.584-1.381-3.615-2.233-5.89-2.233a8.908 8.908 0 0 0-8.934 8.934 8.907 8.907 0 0 0 8.934 8.934c4.467 0 8.529-3.249 8.529-8.934 0-.528-.081-1.097-.202-1.625z"
-                  fill="currentColor"
-                />
-              </svg>
-              Google
             </Button>
           </div>
         </CardContent>
