@@ -35,24 +35,48 @@ export type Database = {
       }
       profiles: {
         Row: {
+          address: string | null
+          age: number | null
+          allergies: string | null
           avatar_url: string | null
+          contact: string | null
           created_at: string | null
+          current_medication: string | null
           full_name: string | null
+          gender: string | null
           id: string
+          is_admin: boolean | null
+          medical_history: string | null
           updated_at: string | null
         }
         Insert: {
+          address?: string | null
+          age?: number | null
+          allergies?: string | null
           avatar_url?: string | null
+          contact?: string | null
           created_at?: string | null
+          current_medication?: string | null
           full_name?: string | null
+          gender?: string | null
           id: string
+          is_admin?: boolean | null
+          medical_history?: string | null
           updated_at?: string | null
         }
         Update: {
+          address?: string | null
+          age?: number | null
+          allergies?: string | null
           avatar_url?: string | null
+          contact?: string | null
           created_at?: string | null
+          current_medication?: string | null
           full_name?: string | null
+          gender?: string | null
           id?: string
+          is_admin?: boolean | null
+          medical_history?: string | null
           updated_at?: string | null
         }
         Relationships: []

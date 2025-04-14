@@ -1,11 +1,9 @@
-
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import Logo from "@/components/shared/Logo";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -14,6 +12,7 @@ const LoginPage = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,6 +37,50 @@ const LoginPage = () => {
       if (error) throw error;
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Google Sign-In failed");
+    }
+  };
+
+  const handleAdminLogin = async () => {
+    setLoading(true);
+    try {
+      const { data: existingAdmin } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('email', 'admin@gmail.com')
+        .single();
+
+      if (!existingAdmin) {
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email: 'admin@gmail.com',
+          password: 'admin',
+          options: {
+            data: {
+              full_name: 'Administrator',
+            },
+          },
+        });
+
+        if (authError) throw authError;
+
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({
+            is_admin: true,
+            full_name: 'Administrator',
+          })
+          .eq('id', authData.user?.id);
+
+        if (profileError) throw profileError;
+
+        toast.success("Admin account created successfully.");
+      } else {
+        toast.info("Admin account already exists. Use admin@gmail.com and password 'admin' to log in.");
+      }
+    } catch (error) {
+      console.error("Error creating admin account:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to create admin account");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -118,7 +161,17 @@ const LoginPage = () => {
             </Button>
           </div>
         </CardContent>
-        <CardFooter className="flex justify-center">
+        <CardFooter className="flex flex-col space-y-4">
+          <div className="text-center">
+            <Button 
+              variant="secondary" 
+              className="w-full" 
+              onClick={handleAdminLogin}
+              disabled={loading}
+            >
+              {loading ? "Creating Admin..." : "Create Admin Account"}
+            </Button>
+          </div>
           <div className="text-sm text-gray-600">
             Don't have an account?{" "}
             <Link to="/register" className="text-primary font-medium hover:underline">
