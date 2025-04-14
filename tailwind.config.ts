@@ -32,6 +32,18 @@ export default {
 					DEFAULT: 'hsl(var(--secondary))',
 					foreground: 'hsl(var(--secondary-foreground))'
 				},
+                medical: {
+                    50: '#e6f7fa',
+                    100: '#cceff5',
+                    200: '#99dfeb',
+                    300: '#66cfe0',
+                    400: '#33bfd6',
+                    500: '#00afcc', // main teal
+                    600: '#008ca3',
+                    700: '#00697a',
+                    800: '#004552',
+                    900: '#002229',
+                },
 				destructive: {
 					DEFAULT: 'hsl(var(--destructive))',
 					foreground: 'hsl(var(--destructive-foreground))'
