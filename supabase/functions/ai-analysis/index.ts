@@ -36,7 +36,7 @@ serve(async (req) => {
       throw new Error('No prompt provided')
     }
 
-    // Process the prompt using OpenAI
+    // Process the prompt using Claude API
     let generatedText = ''
     let response
 
@@ -74,7 +74,9 @@ serve(async (req) => {
     })
 
     if (!response.ok) {
-      throw new Error(`API request failed with status ${response.status}`)
+      const errorBody = await response.text();
+      console.error('Claude API response error:', errorBody);
+      throw new Error(`API request failed with status ${response.status}: ${errorBody}`)
     }
 
     const result = await response.json()
@@ -85,26 +87,50 @@ serve(async (req) => {
       try {
         const token = req.headers.get('authorization')?.split('Bearer ')[1]
         
+        if (!token) {
+          console.error('No token provided in authorization header');
+          throw new Error('No token provided');
+        }
+        
         // Verify the user token
         const { data: userData, error: verifyError } = await supabase.auth.getUser(token)
         
         if (verifyError || !userData.user) {
           console.error('Error verifying user token:', verifyError)
-        } else {
-          // Log the conversation
-          await supabase.from('chat_history').insert([
-            { 
-              user_id: userData.user.id,
-              role: 'user',
-              content: prompt
-            },
-            {
-              user_id: userData.user.id,
-              role: 'assistant',
-              content: generatedText
-            }
-          ])
+          throw new Error('User verification failed');
         }
+        
+        console.log('User verified, logging conversation for user:', userData.user.id);
+        
+        // Log the user's message
+        const { error: userMessageError } = await supabase.from('chat_history').insert([
+          { 
+            user_id: userData.user.id,
+            role: 'user',
+            content: prompt
+          }
+        ])
+        
+        if (userMessageError) {
+          console.error('Error logging user message:', userMessageError);
+          throw userMessageError;
+        }
+        
+        // Log the assistant's response
+        const { error: assistantMessageError } = await supabase.from('chat_history').insert([
+          {
+            user_id: userData.user.id,
+            role: 'assistant',
+            content: generatedText
+          }
+        ])
+        
+        if (assistantMessageError) {
+          console.error('Error logging assistant message:', assistantMessageError);
+          throw assistantMessageError;
+        }
+        
+        console.log('Successfully logged conversation');
       } catch (error) {
         console.error('Error logging conversation:', error)
       }
