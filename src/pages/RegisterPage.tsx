@@ -41,16 +41,22 @@ const RegisterPage = () => {
 
       if (error) throw error;
 
+      if (!data.user) {
+        throw new Error("User creation failed");
+      }
+
       // Check if this is the admin account
       const isAdmin = email === "admin@gmail.com";
 
+      console.log("Creating profile for user:", data.user.id);
+      
       // Create a profile entry with additional patient data
       const { error: profileError } = await supabase
         .from("profiles")
         .update({
           full_name: fullName,
           is_admin: isAdmin,
-          age: parseInt(age),
+          age: age ? parseInt(age) : null,
           gender,
           contact,
           address,
@@ -58,9 +64,12 @@ const RegisterPage = () => {
           allergies,
           current_medication: currentMedication,
         })
-        .eq("id", data.user?.id);
+        .eq("id", data.user.id);
 
-      if (profileError) throw profileError;
+      if (profileError) {
+        console.error("Profile update error:", profileError);
+        throw profileError;
+      }
 
       toast.success("Registration successful! Please check your email to confirm your account.");
       navigate("/login");
