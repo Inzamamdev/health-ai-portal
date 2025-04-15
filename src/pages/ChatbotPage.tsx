@@ -1,10 +1,12 @@
-import { useState, useEffect } from "react";
+
+import { useState, useEffect, useRef } from "react";
 import MainLayout from "@/layouts/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Send } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import ChatMessage from "@/components/ChatMessage";
 
 const ChatbotPage = () => {
   const [messages, setMessages] = useState<{
@@ -31,6 +33,18 @@ const ChatbotPage = () => {
     gender: null
   });
 
+  // Reference for auto-scrolling
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
   // Fetch user profile on component mount
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -56,6 +70,7 @@ const ChatbotPage = () => {
         }
         
         if (profileData) {
+          console.log("Profile data loaded:", profileData);
           setUserProfile({
             full_name: profileData.full_name,
             age: profileData.age,
@@ -93,6 +108,7 @@ const ChatbotPage = () => {
         }
         
         if (chatData && chatData.length > 0) {
+          console.log("Chat history loaded:", chatData);
           const formattedChatHistory = chatData.map((msg) => ({
             content: msg.content,
             role: msg.role as "user" | "assistant",
@@ -250,30 +266,14 @@ const ChatbotPage = () => {
               <CardContent className="p-6 flex-1 flex flex-col">
                 <div className="flex-1 overflow-y-auto mb-4 space-y-4">
                   {messages.map((message, index) => (
-                    <div
+                    <ChatMessage 
                       key={index}
-                      className={`flex ${
-                        message.role === "user" ? "justify-end" : "justify-start"
-                      }`}
-                    >
-                      <div
-                        className={`max-w-[80%] rounded-lg p-4 ${
-                          message.role === "user"
-                            ? "bg-primary text-white"
-                            : "bg-gray-100 text-gray-800"
-                        }`}
-                      >
-                        <div className="text-sm">{message.content}</div>
-                        <div
-                          className={`text-xs mt-1 ${
-                            message.role === "user" ? "text-blue-100" : "text-gray-500"
-                          }`}
-                        >
-                          {message.timestamp}
-                        </div>
-                      </div>
-                    </div>
+                      content={message.content}
+                      role={message.role}
+                      timestamp={message.timestamp}
+                    />
                   ))}
+                  <div ref={messagesEndRef} />
                 </div>
 
                 <div className="flex items-center space-x-2">
