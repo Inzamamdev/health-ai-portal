@@ -27,6 +27,52 @@ const LoginPage = () => {
     }
   };
 
+  const handleAdminLogin = async () => {
+    try {
+      // First check if admin account exists
+      const { data: adminExists } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('is_admin', true)
+        .single();
+      
+      if (!adminExists) {
+        // Create admin account if it doesn't exist
+        const { data: { user }, error: signUpError } = await supabase.auth.signUp({
+          email: 'admin@gmail.com',
+          password: 'admin',
+        });
+        
+        if (signUpError) throw signUpError;
+        
+        if (user) {
+          // Set admin flag in profiles
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .update({ is_admin: true, full_name: 'Admin User' })
+            .eq('id', user.id);
+          
+          if (profileError) throw profileError;
+          
+          toast.success("Admin account created successfully");
+        }
+      }
+      
+      // Log in as admin
+      const { error: loginError } = await supabase.auth.signInWithPassword({
+        email: 'admin@gmail.com',
+        password: 'admin',
+      });
+      
+      if (loginError) throw loginError;
+      
+      toast.success("Logged in as admin");
+      navigate("/");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Admin login failed");
+    }
+  };
+
   const handleGoogleSignIn = async () => {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
@@ -83,6 +129,10 @@ const LoginPage = () => {
             </div>
             <Button type="submit" className="w-full">Sign In</Button>
           </form>
+          
+          <Button variant="outline" className="w-full" onClick={handleAdminLogin}>
+            Admin Login (admin@gmail.com)
+          </Button>
           
           <div className="relative my-4">
             <div className="absolute inset-0 flex items-center">
