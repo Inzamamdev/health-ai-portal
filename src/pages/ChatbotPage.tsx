@@ -1,135 +1,96 @@
-
 import { useState, useEffect, useRef } from "react";
 import MainLayout from "@/layouts/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Send } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
-import ChatMessage from "@/components/ChatMessage";
 
 const ChatbotPage = () => {
-  const [messages, setMessages] = useState<{
-    content: string;
-    role: "user" | "assistant";
-    timestamp: string;
-  }[]>([
+  const { user } = useAuth();
+  const [messages, setMessages] = useState<
+    {
+      content: string;
+      role: "user" | "assistant";
+      timestamp: string;
+    }[]
+  >([
     {
       content: "Hello! I'm your AI Doctor Assistant. How can I help you today?",
       role: "assistant",
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    }
+      timestamp: new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+    },
   ]);
-
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [userProfile, setUserProfile] = useState<{
-    full_name: string | null;
-    age: number | null;
-    gender: string | null;
-  }>({
-    full_name: null,
-    age: null,
-    gender: null
-  });
+  const [profile, setProfile] = useState<{
+    full_name: string;
+    age?: number;
+    gender?: string;
+  } | null>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null); // Ref for chat container
 
-  // Reference for auto-scrolling
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  // Scroll to bottom when messages change
+  // Fetch user profile
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  // Fetch user profile on component mount
-  useEffect(() => {
-    const fetchUserProfile = async () => {
-      try {
-        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError || !sessionData.session) {
-          console.error("No active session:", sessionError);
-          return;
-        }
-
-        const userId = sessionData.session.user.id;
-        
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('full_name, age, gender')
-          .eq('id', userId)
+    const fetchProfile = async () => {
+      if (user) {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("full_name, age, gender")
+          .eq("id", user.id)
           .single();
-        
-        if (profileError) {
-          console.error("Error fetching user profile:", profileError);
-          return;
+        if (error) {
+          console.error("Error fetching profile:", error);
+          toast.error("Failed to load profile data");
+        } else {
+          setProfile(data);
         }
-        
-        if (profileData) {
-          console.log("Profile data loaded:", profileData);
-          setUserProfile({
-            full_name: profileData.full_name,
-            age: profileData.age,
-            gender: profileData.gender
-          });
-        }
-      } catch (error) {
-        console.error("Error in fetchUserProfile:", error);
       }
     };
+    fetchProfile();
+  }, [user]);
 
-    fetchUserProfile();
-  }, []);
-
-  // Also fetch chat history on component mount
+  // Load chat history
   useEffect(() => {
-    const fetchChatHistory = async () => {
-      try {
-        const { data: sessionData } = await supabase.auth.getSession();
-        
-        if (!sessionData.session) {
-          return;
+    const fetchHistory = async () => {
+      if (user) {
+        const { data, error } = await supabase
+          .from("chat_history")
+          .select("role, content, created_at")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: true });
+        if (error) {
+          console.error("Error fetching chat history:", error);
+          toast.error("Failed to load chat history");
+        } else if (data) {
+          setMessages((prevMessages) => [
+            prevMessages[0], // Keep initial assistant message
+            ...data.map((msg) => ({
+              content: msg.content,
+              role: msg.role as "user" | "assistant",
+              timestamp: new Date(msg.created_at).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
+            })),
+          ]);
         }
-
-        const { data: chatData, error: chatError } = await supabase
-          .from('chat_history')
-          .select('content, role, created_at')
-          .eq('user_id', sessionData.session.user.id)
-          .order('created_at', { ascending: true })
-          .limit(50);
-        
-        if (chatError) {
-          console.error("Error fetching chat history:", chatError);
-          return;
-        }
-        
-        if (chatData && chatData.length > 0) {
-          console.log("Chat history loaded:", chatData);
-          const formattedChatHistory = chatData.map((msg) => ({
-            content: msg.content,
-            role: msg.role as "user" | "assistant",
-            timestamp: new Date(msg.created_at || Date.now()).toLocaleTimeString([], { 
-              hour: '2-digit', 
-              minute: '2-digit' 
-            })
-          }));
-          
-          setMessages((prevMessages) => {
-            // Keep the welcome message and add the chat history
-            return [prevMessages[0], ...formattedChatHistory];
-          });
-        }
-      } catch (error) {
-        console.error("Error in fetchChatHistory:", error);
       }
     };
+    fetchHistory();
+  }, [user]);
 
-    fetchChatHistory();
-  }, []);
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop =
+        chatContainerRef.current.scrollHeight;
+    }
+  }, [messages]);
 
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isLoading) return;
@@ -137,34 +98,45 @@ const ChatbotPage = () => {
     const newUserMessage = {
       content: inputValue,
       role: "user" as const,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      timestamp: new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
     };
-    
-    setMessages(prevMessages => [...prevMessages, newUserMessage]);
+
+    setMessages((prevMessages) => [...prevMessages, newUserMessage]);
     setInputValue("");
     setIsLoading(true);
-    
+
     try {
-      // Get the current session
-      const { data: sessionData } = await supabase.auth.getSession();
-      
-      if (!sessionData.session) {
+      if (!user) {
         toast.error("You need to be logged in to use the chatbot");
         setIsLoading(false);
         return;
       }
 
-      // Call the AI analysis edge function
-      const response = await fetch(`https://drqcnssxwwvxijbgncsz.supabase.co/functions/v1/ai-analysis`, {
-        method: 'POST',
+      // Get session for access token
+      const { data: sessionData, error: sessionError } =
+        await supabase.auth.getSession();
+      if (sessionError || !sessionData.session) {
+        toast.error("You need to be logged in to use the chatbot");
+        setIsLoading(false);
+        return;
+      }
+      const accessToken = sessionData.session.access_token;
+
+      // Call Node.js server
+      const response = await fetch("http://localhost:8000/ai-analysis", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${sessionData.session.access_token}`
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
           prompt: inputValue,
-          type: 'chat'
-        })
+          type: "chat",
+          userId: user.id,
+        }),
       });
 
       if (!response.ok) {
@@ -173,26 +145,50 @@ const ChatbotPage = () => {
 
       const data = await response.json();
 
+      // Save user message to database
+      const { error: userMessageError } = await supabase
+        .from("chat_history")
+        .insert([{ role: "user", content: inputValue, user_id: user.id }]);
+      if (userMessageError) {
+        console.error("Error saving user message:", userMessageError);
+      }
+
       // Create AI response message
       const newAIMessage = {
         content: data.generatedText,
         role: "assistant" as const,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        timestamp: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
       };
 
-      setMessages(prevMessages => [...prevMessages, newAIMessage]);
+      // Save AI response to database
+      const { error: aiMessageError } = await supabase
+        .from("chat_history")
+        .insert([
+          { role: "assistant", content: data.generatedText, user_id: user.id },
+        ]);
+      if (aiMessageError) {
+        console.error("Error saving AI message:", aiMessageError);
+      }
+
+      setMessages((prevMessages) => [...prevMessages, newAIMessage]);
     } catch (error) {
       console.error("Error sending message:", error);
       toast.error("Failed to get a response. Please try again.");
-      
-      // Add error message
+
       const errorMessage = {
-        content: "I'm sorry, I couldn't process your request. Please try again later.",
+        content:
+          "I'm sorry, I couldn't process your request. Please try again later.",
         role: "assistant" as const,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        timestamp: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
       };
-      
-      setMessages(prevMessages => [...prevMessages, errorMessage]);
+
+      setMessages((prevMessages) => [...prevMessages, errorMessage]);
     } finally {
       setIsLoading(false);
     }
@@ -206,7 +202,7 @@ const ChatbotPage = () => {
     "Sleep Problems",
     "Skin Rashes",
     "Joint Pain",
-    "Breathing Difficulties"
+    "Breathing Difficulties",
   ];
 
   const handleTopicClick = (topic: string) => {
@@ -219,7 +215,8 @@ const ChatbotPage = () => {
         <div className="max-w-6xl mx-auto">
           <h1 className="text-3xl font-bold mb-6">Chat Bot / General Care</h1>
           <p className="text-gray-600 mb-8">
-            Talk to our AI assistant about general health concerns and get instant guidance
+            Talk to our AI assistant about general health concerns and get
+            instant guidance
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -230,16 +227,21 @@ const ChatbotPage = () => {
                   <h2 className="text-lg font-semibold mb-4">Patient Info</h2>
                   <div className="space-y-2 text-sm">
                     <div>
-                      <span className="text-gray-500">Name:</span>
-                      <p className="font-medium">{userProfile.full_name || "Guest User"}</p>
+                      <p className="font-medium">
+                        Name:{profile?.full_name || "Guest User"}
+                      </p>
                     </div>
                     <div>
-                      <span className="text-gray-500">Age:</span>
-                      <p className="font-medium">{userProfile.age ? userProfile.age.toString() : "Not specified"}</p>
+                      <p className="font-medium">
+                        Age:{profile?.age || "Not specified"}
+                      </p>
                     </div>
                     <div>
-                      <span className="text-gray-500">Gender:</span>
-                      <p className="font-medium">{userProfile.gender || "Not specified"}</p>
+                      <p className="font-medium">
+                        Gender:{" "}
+                        {profile?.gender.split("")[0].toUpperCase() ||
+                          "Not specified"}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -263,19 +265,44 @@ const ChatbotPage = () => {
 
             {/* Chat Area */}
             <Card className="md:col-span-3 flex flex-col h-[600px]">
-              <CardContent className="p-6 flex-1 flex flex-col">
-                <div className="flex-1 overflow-y-auto mb-4 space-y-4">
+              <CardContent className="p-6 flex flex-col h-full">
+                {/* Scrollable Messages */}
+                <div
+                  ref={chatContainerRef}
+                  className="flex-1 overflow-y-auto mb-4 space-y-4 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
+                >
                   {messages.map((message, index) => (
-                    <ChatMessage 
+                    <div
                       key={index}
-                      content={message.content}
-                      role={message.role}
-                      timestamp={message.timestamp}
-                    />
+                      className={`flex ${
+                        message.role === "user"
+                          ? "justify-end"
+                          : "justify-start"
+                      }`}
+                    >
+                      <div
+                        className={`max-w-[80%] rounded-lg p-4 break-words ${
+                          message.role === "user"
+                            ? "bg-primary text-white"
+                            : "bg-gray-100 text-gray-800"
+                        }`}
+                      >
+                        <div className="text-sm">{message.content}</div>
+                        <div
+                          className={`text-xs mt-1 ${
+                            message.role === "user"
+                              ? "text-blue-100"
+                              : "text-gray-500"
+                          }`}
+                        >
+                          {message.timestamp}
+                        </div>
+                      </div>
+                    </div>
                   ))}
-                  <div ref={messagesEndRef} />
                 </div>
 
+                {/* Fixed Input Section */}
                 <div className="flex items-center space-x-2">
                   <input
                     type="text"
