@@ -1,11 +1,12 @@
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import MainLayout from "@/layouts/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Send } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import ChatMessage from "@/components/ChatMessage";
 
 const ChatbotPage = () => {
   const [messages, setMessages] = useState<{
@@ -22,6 +23,113 @@ const ChatbotPage = () => {
 
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [userProfile, setUserProfile] = useState<{
+    full_name: string | null;
+    age: number | null;
+    gender: string | null;
+  }>({
+    full_name: null,
+    age: null,
+    gender: null
+  });
+
+  // Reference for auto-scrolling
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  // Fetch user profile on component mount
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      try {
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError || !sessionData.session) {
+          console.error("No active session:", sessionError);
+          return;
+        }
+
+        const userId = sessionData.session.user.id;
+        
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('full_name, age, gender')
+          .eq('id', userId)
+          .single();
+        
+        if (profileError) {
+          console.error("Error fetching user profile:", profileError);
+          return;
+        }
+        
+        if (profileData) {
+          console.log("Profile data loaded:", profileData);
+          setUserProfile({
+            full_name: profileData.full_name,
+            age: profileData.age,
+            gender: profileData.gender
+          });
+        }
+      } catch (error) {
+        console.error("Error in fetchUserProfile:", error);
+      }
+    };
+
+    fetchUserProfile();
+  }, []);
+
+  // Also fetch chat history on component mount
+  useEffect(() => {
+    const fetchChatHistory = async () => {
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        
+        if (!sessionData.session) {
+          return;
+        }
+
+        const { data: chatData, error: chatError } = await supabase
+          .from('chat_history')
+          .select('content, role, created_at')
+          .eq('user_id', sessionData.session.user.id)
+          .order('created_at', { ascending: true })
+          .limit(50);
+        
+        if (chatError) {
+          console.error("Error fetching chat history:", chatError);
+          return;
+        }
+        
+        if (chatData && chatData.length > 0) {
+          console.log("Chat history loaded:", chatData);
+          const formattedChatHistory = chatData.map((msg) => ({
+            content: msg.content,
+            role: msg.role as "user" | "assistant",
+            timestamp: new Date(msg.created_at || Date.now()).toLocaleTimeString([], { 
+              hour: '2-digit', 
+              minute: '2-digit' 
+            })
+          }));
+          
+          setMessages((prevMessages) => {
+            // Keep the welcome message and add the chat history
+            return [prevMessages[0], ...formattedChatHistory];
+          });
+        }
+      } catch (error) {
+        console.error("Error in fetchChatHistory:", error);
+      }
+    };
+
+    fetchChatHistory();
+  }, []);
 
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isLoading) return;
@@ -47,7 +155,7 @@ const ChatbotPage = () => {
       }
 
       // Call the AI analysis edge function
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-analysis`, {
+      const response = await fetch(`https://drqcnssxwwvxijbgncsz.supabase.co/functions/v1/ai-analysis`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -65,22 +173,12 @@ const ChatbotPage = () => {
 
       const data = await response.json();
 
-      // Save the conversation to the database
-      await supabase.from('chat_history').insert([
-        { role: 'user', content: inputValue, user_id: sessionData.session.user.id }
-      ]);
-
       // Create AI response message
       const newAIMessage = {
         content: data.generatedText,
         role: "assistant" as const,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
-
-      // Save AI response to database
-      await supabase.from('chat_history').insert([
-        { role: 'assistant', content: data.generatedText, user_id: sessionData.session.user.id }
-      ]);
 
       setMessages(prevMessages => [...prevMessages, newAIMessage]);
     } catch (error) {
@@ -133,15 +231,15 @@ const ChatbotPage = () => {
                   <div className="space-y-2 text-sm">
                     <div>
                       <span className="text-gray-500">Name:</span>
-                      <p className="font-medium">Guest User</p>
+                      <p className="font-medium">{userProfile.full_name || "Guest User"}</p>
                     </div>
                     <div>
                       <span className="text-gray-500">Age:</span>
-                      <p className="font-medium">Not specified</p>
+                      <p className="font-medium">{userProfile.age ? userProfile.age.toString() : "Not specified"}</p>
                     </div>
                     <div>
                       <span className="text-gray-500">Gender:</span>
-                      <p className="font-medium">Not specified</p>
+                      <p className="font-medium">{userProfile.gender || "Not specified"}</p>
                     </div>
                   </div>
                 </div>
@@ -168,30 +266,14 @@ const ChatbotPage = () => {
               <CardContent className="p-6 flex-1 flex flex-col">
                 <div className="flex-1 overflow-y-auto mb-4 space-y-4">
                   {messages.map((message, index) => (
-                    <div
+                    <ChatMessage 
                       key={index}
-                      className={`flex ${
-                        message.role === "user" ? "justify-end" : "justify-start"
-                      }`}
-                    >
-                      <div
-                        className={`max-w-[80%] rounded-lg p-4 ${
-                          message.role === "user"
-                            ? "bg-primary text-white"
-                            : "bg-gray-100 text-gray-800"
-                        }`}
-                      >
-                        <div className="text-sm">{message.content}</div>
-                        <div
-                          className={`text-xs mt-1 ${
-                            message.role === "user" ? "text-blue-100" : "text-gray-500"
-                          }`}
-                        >
-                          {message.timestamp}
-                        </div>
-                      </div>
-                    </div>
+                      content={message.content}
+                      role={message.role}
+                      timestamp={message.timestamp}
+                    />
                   ))}
+                  <div ref={messagesEndRef} />
                 </div>
 
                 <div className="flex items-center space-x-2">
