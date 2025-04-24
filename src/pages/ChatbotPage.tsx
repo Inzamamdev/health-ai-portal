@@ -2,13 +2,14 @@ import { useState, useEffect, useRef } from "react";
 import MainLayout from "@/layouts/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Send } from "lucide-react";
+import { Send, RefreshCw } from "lucide-react"; // Added RefreshCw icon for New Chat
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
-
+import ReactMarkdown from "react-markdown";
 const ChatbotPage = () => {
   const { user } = useAuth();
+  const SERVER_URL = import.meta.env.VITE_OPENAI_SERVER_URL;
   const [messages, setMessages] = useState<
     {
       content: string;
@@ -32,7 +33,7 @@ const ChatbotPage = () => {
     age?: number;
     gender?: string;
   } | null>(null);
-  const chatContainerRef = useRef<HTMLDivElement>(null); // Ref for chat container
+  const chatContainerRef = useRef<HTMLDivElement>(null);
 
   // Fetch user profile
   useEffect(() => {
@@ -92,6 +93,37 @@ const ChatbotPage = () => {
     }
   }, [messages]);
 
+  // Handle New Chat
+  const handleNewChat = async () => {
+    if (user) {
+      // Clear chat history from Supabase
+      const { error } = await supabase
+        .from("chat_history")
+        .delete()
+        .eq("user_id", user.id);
+      if (error) {
+        console.error("Error clearing chat history:", error);
+        toast.error("Failed to clear chat history");
+        return;
+      }
+    }
+
+    // Reset messages to initial state
+    setMessages([
+      {
+        content:
+          "Hello! I'm your AI Doctor Assistant. How can I help you today?",
+        role: "assistant",
+        timestamp: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      },
+    ]);
+    setInputValue("");
+    toast.success("Started a new chat!");
+  };
+
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isLoading) return;
 
@@ -126,7 +158,7 @@ const ChatbotPage = () => {
       const accessToken = sessionData.session.access_token;
 
       // Call Node.js server
-      const response = await fetch("http://localhost:8000/ai-analysis", {
+      const response = await fetch(`${SERVER_URL}/ai-analysis`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -213,7 +245,17 @@ const ChatbotPage = () => {
     <MainLayout>
       <div className="container mx-auto py-8 px-4">
         <div className="max-w-6xl mx-auto">
-          <h1 className="text-3xl font-bold mb-6">Chat Bot / General Care</h1>
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-3xl font-bold">Chat Bot / General Care</h1>
+            <Button
+              onClick={handleNewChat}
+              className="bg-secondary hover:bg-secondary/90"
+              disabled={isLoading}
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              New Chat
+            </Button>
+          </div>
           <p className="text-gray-600 mb-8">
             Talk to our AI assistant about general health concerns and get
             instant guidance
@@ -228,19 +270,19 @@ const ChatbotPage = () => {
                   <div className="space-y-2 text-sm">
                     <div>
                       <p className="font-medium">
-                        Name:{profile?.full_name || "Guest User"}
+                        Name: {profile?.full_name || "Guest User"}
                       </p>
                     </div>
                     <div>
                       <p className="font-medium">
-                        Age:{profile?.age || "Not specified"}
+                        Age: {profile?.age || "Not specified"}
                       </p>
                     </div>
                     <div>
                       <p className="font-medium">
                         Gender:{" "}
-                        {profile?.gender.split("")[0].toUpperCase() ||
-                          "Not specified"}
+                        {profile?.gender?.charAt(0).toUpperCase() +
+                          (profile?.gender?.slice(1) || "Not specified")}
                       </p>
                     </div>
                   </div>
@@ -287,7 +329,9 @@ const ChatbotPage = () => {
                             : "bg-gray-100 text-gray-800"
                         }`}
                       >
-                        <div className="text-sm">{message.content}</div>
+                        <div className="text-sm">
+                          <ReactMarkdown>{message.content}</ReactMarkdown>
+                        </div>
                         <div
                           className={`text-xs mt-1 ${
                             message.role === "user"

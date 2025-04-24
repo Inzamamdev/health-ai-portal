@@ -13,6 +13,7 @@ import MedicalReportPage from "./pages/MedicalReportPage";
 import XrayMriPage from "./pages/XrayMriPage";
 import HospitalsPage from "./pages/HospitalsPage";
 import NotFound from "./pages/NotFound";
+import { ResultsProvider } from "./context/ResultsContext";
 
 const App = () => (
   <TooltipProvider>
@@ -30,7 +31,14 @@ const App = () => (
           <Route element={<ProtectedRoute />}>
             <Route path="/" element={<HomePage />} />
             <Route path="/chatbot" element={<ChatbotPage />} />
-            <Route path="/cancer-detection" element={<CancerDetectionPage />} />
+            <Route
+              path="/cancer-detection"
+              element={
+                <ResultsProvider>
+                  <CancerDetectionPage />
+                </ResultsProvider>
+              }
+            />
             <Route path="/medical-reports" element={<MedicalReportPage />} />
             <Route path="/xray-mri" element={<XrayMriPage />} />
             <Route path="/hospitals" element={<HospitalsPage />} />

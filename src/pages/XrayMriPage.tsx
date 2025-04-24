@@ -1,13 +1,25 @@
-
 import { useState } from "react";
 import MainLayout from "@/layouts/MainLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Upload, Brain, CircleX } from "lucide-react";
+import { toast } from "sonner";
 
+interface ResultsData {
+  class_label: string;
+  confidence: number;
+}
+
+const MODEL_URL = import.meta.env.VITE_MODEL_URL;
 const XrayMriPage = () => {
   return (
     <MainLayout>
@@ -24,15 +36,15 @@ const XrayMriPage = () => {
               <TabsTrigger value="mri">MRI Analysis</TabsTrigger>
               <TabsTrigger value="ct">CT Scan Analysis</TabsTrigger>
             </TabsList>
-            
+
             <TabsContent value="xray">
               <XrayAnalysisTab />
             </TabsContent>
-            
+
             <TabsContent value="mri">
               <MriAnalysisTab />
             </TabsContent>
-            
+
             <TabsContent value="ct">
               <CtAnalysisTab />
             </TabsContent>
@@ -48,13 +60,13 @@ const XrayAnalysisTab = () => {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [selectedType, setSelectedType] = useState<string>("");
-  const [results, setResults] = useState<string | null>(null);
+  const [results, setResults] = useState<ResultsData | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setSelectedFile(file);
-      
+
       // Create preview URL
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -64,24 +76,68 @@ const XrayAnalysisTab = () => {
     }
   };
 
-  const handleAnalyze = () => {
+  const handleAnalyze = async () => {
     if (!selectedFile || !selectedType) return;
-    
+
     setAnalyzing(true);
-    
-    // Simulate AI analysis
-    setTimeout(() => {
-      setResults("The X-ray appears normal with no signs of fractures, dislocations, or other abnormalities. Bone density appears normal for age. Joint spaces are well-maintained. No evidence of arthritis or other degenerative changes.");
+
+    try {
+      const formData = new FormData();
+      formData.append("image", selectedFile);
+      formData.append("type", selectedType);
+      console.log(formData);
+      const response = await fetch(`${MODEL_URL}/predict`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to analyze the image.");
+      }
+
+      const data = await response.json();
+      if (!data.class_label || typeof data.confidence !== "number") {
+        throw new Error("Invalid response format from server.");
+      }
+
+      setResults({
+        class_label: data?.class_label,
+        confidence: data?.confidence,
+      });
+      toast.success("Analysis completed successfully!");
+    } catch (err: any) {
+      toast.error(err.message || "Analysis failed. Please try again.");
+    } finally {
       setAnalyzing(false);
-    }, 2000);
+    }
   };
+
+  const isCancer = results?.class_label !== "Normal";
+  const confidencePercentage = (results?.confidence * 100).toFixed(2);
+  const { level: riskLevel, color: riskColor } = getRiskLevel(
+    results?.class_label,
+    results?.confidence
+  );
+  const resultMessage = isCancer
+    ? `The analysis indicates a potential presence of ${results?.class_label} with a confidence of ${confidencePercentage}%.`
+    : `No concerning indicators detected (Normal) with a confidence of ${confidencePercentage}%.`;
+  const recommendation = isCancer
+    ? "Please consult a healthcare provider immediately for a professional evaluation."
+    : "Regular medical check-ups are recommended to monitor your health.";
+  const riskExplanation =
+    riskLevel === "High"
+      ? "This indicates a strong likelihood of concern, requiring urgent medical attention."
+      : riskLevel === "Moderate"
+      ? "This suggests some uncertainty; further evaluation is advised."
+      : "This suggests a low likelihood of concern, but regular monitoring is still recommended.";
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
       <Card>
         <CardContent className="p-6">
           <h2 className="text-xl font-semibold mb-6">Upload an X-ray Image</h2>
-          
+
           <div className="space-y-4 mb-6">
             <div>
               <Label htmlFor="xray-type">X-ray Type</Label>
@@ -99,14 +155,14 @@ const XrayAnalysisTab = () => {
               </Select>
             </div>
           </div>
-          
+
           <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 mb-6">
             {previewUrl ? (
               <div className="mb-4">
-                <img 
-                  src={previewUrl} 
-                  alt="X-ray Preview" 
-                  className="max-h-64 mx-auto" 
+                <img
+                  src={previewUrl}
+                  alt="X-ray Preview"
+                  className="max-h-64 mx-auto"
                 />
               </div>
             ) : (
@@ -120,7 +176,7 @@ const XrayAnalysisTab = () => {
                 </p>
               </div>
             )}
-            
+
             <div className="text-center mt-4">
               <input
                 type="file"
@@ -130,17 +186,19 @@ const XrayAnalysisTab = () => {
                 onChange={handleFileChange}
               />
               <label htmlFor="xray-upload">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="mr-2"
-                  onClick={() => document.getElementById("xray-upload")?.click()}
+                  onClick={() =>
+                    document.getElementById("xray-upload")?.click()
+                  }
                 >
                   <Upload className="mr-2 h-4 w-4" />
                   Upload Image
                 </Button>
               </label>
-              
-              <Button 
+
+              <Button
                 onClick={handleAnalyze}
                 disabled={!selectedFile || !selectedType || analyzing}
                 className="bg-primary hover:bg-primary/90"
@@ -149,33 +207,39 @@ const XrayAnalysisTab = () => {
               </Button>
             </div>
           </div>
-          
+
           <div className="text-sm text-gray-500">
-            <p><strong>For best results:</strong> Ensure the X-ray is clearly visible and properly oriented. Upload the highest quality image available.</p>
+            <p>
+              <strong>For best results:</strong> Ensure the X-ray is clearly
+              visible and properly oriented. Upload the highest quality image
+              available.
+            </p>
           </div>
         </CardContent>
       </Card>
-      
+
       <Card>
         <CardContent className="p-6">
           <h2 className="text-xl font-semibold mb-6">X-ray Analysis Results</h2>
-          
+
           {results ? (
-            <div>
-              <div className="p-4 bg-blue-50 border border-blue-100 rounded-lg mb-6">
-                <h3 className="font-medium text-gray-900 mb-2">AI Assessment</h3>
-                <p className="text-gray-700">{results}</p>
+            <div className="mb-6">
+              <div
+                className={`p-4 border rounded-lg ${
+                  isCancer
+                    ? "bg-red-50 border-red-200 text-red-800"
+                    : "bg-green-50 border-green-200 text-green-800"
+                }`}
+              >
+                <p className="font-semibold">{resultMessage}</p>
+                <div className={`mt-2 p-2 rounded-md ${riskColor}`}>
+                  <p className="font-medium">Risk Level: {riskLevel}</p>
+                  <p className="text-sm">{riskExplanation}</p>
+                </div>
+                <p className="mt-2">{recommendation}</p>
               </div>
-              
-              <div className="p-4 bg-yellow-50 border border-yellow-100 rounded-lg mb-6">
-                <h3 className="font-medium text-gray-900 mb-2">Important Note</h3>
-                <p className="text-gray-700">
-                  This AI analysis is intended as a preliminary assessment only. It should not replace professional medical evaluation.
-                </p>
-              </div>
-              
-              <Button className="w-full bg-primary hover:bg-primary/90">
-                Consult with a Specialist
+              <Button className="w-full mt-4 bg-primary hover:bg-primary/90">
+                Get Professional Consultation
               </Button>
             </div>
           ) : (
@@ -199,13 +263,14 @@ const MriAnalysisTab = () => {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [selectedType, setSelectedType] = useState<string>("");
-  const [results, setResults] = useState<string | null>(null);
+  const [results, setResults] = useState<ResultsData | null>(null);
 
+  console.log(selectedType);
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setSelectedFile(file);
-      
+
       // Create preview URL
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -215,24 +280,68 @@ const MriAnalysisTab = () => {
     }
   };
 
-  const handleAnalyze = () => {
+  const handleAnalyze = async () => {
     if (!selectedFile || !selectedType) return;
-    
+
     setAnalyzing(true);
-    
-    // Simulate AI analysis
-    setTimeout(() => {
-      setResults("The MRI scan shows normal brain morphology with no evidence of structural abnormalities. Ventricles are of normal size and configuration. Gray-white matter differentiation is preserved. No evidence of masses, hemorrhage, or acute infarction. Midline structures are in normal alignment.");
+
+    try {
+      const formData = new FormData();
+      formData.append("image", selectedFile);
+      formData.append("type", selectedType);
+      console.log(formData);
+      const response = await fetch(`${MODEL_URL}/predict`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to analyze the image.");
+      }
+
+      const data = await response.json();
+      if (!data.class_label || typeof data.confidence !== "number") {
+        throw new Error("Invalid response format from server.");
+      }
+
+      setResults({
+        class_label: data?.class_label,
+        confidence: data?.confidence,
+      });
+      toast.success("Analysis completed successfully!");
+    } catch (err: any) {
+      toast.error(err.message || "Analysis failed. Please try again.");
+    } finally {
       setAnalyzing(false);
-    }, 2000);
+    }
   };
+
+  const isCancer = results?.class_label !== "Normal";
+  const confidencePercentage = (results?.confidence * 100).toFixed(2);
+  const { level: riskLevel, color: riskColor } = getRiskLevel(
+    results?.class_label,
+    results?.confidence
+  );
+  const resultMessage = isCancer
+    ? `The analysis indicates a potential presence of ${results?.class_label} with a confidence of ${confidencePercentage}%.`
+    : `No concerning indicators detected (Normal) with a confidence of ${confidencePercentage}%.`;
+  const recommendation = isCancer
+    ? "Please consult a healthcare provider immediately for a professional evaluation."
+    : "Regular medical check-ups are recommended to monitor your health.";
+  const riskExplanation =
+    riskLevel === "High"
+      ? "This indicates a strong likelihood of concern, requiring urgent medical attention."
+      : riskLevel === "Moderate"
+      ? "This suggests some uncertainty; further evaluation is advised."
+      : "This suggests a low likelihood of concern, but regular monitoring is still recommended.";
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
       <Card>
         <CardContent className="p-6">
           <h2 className="text-xl font-semibold mb-6">Upload an MRI Scan</h2>
-          
+
           <div className="space-y-4 mb-6">
             <div>
               <Label htmlFor="mri-type">MRI Type</Label>
@@ -250,14 +359,14 @@ const MriAnalysisTab = () => {
               </Select>
             </div>
           </div>
-          
+
           <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 mb-6">
             {previewUrl ? (
               <div className="mb-4">
-                <img 
-                  src={previewUrl} 
-                  alt="MRI Preview" 
-                  className="max-h-64 mx-auto" 
+                <img
+                  src={previewUrl}
+                  alt="MRI Preview"
+                  className="max-h-64 mx-auto"
                 />
               </div>
             ) : (
@@ -271,7 +380,7 @@ const MriAnalysisTab = () => {
                 </p>
               </div>
             )}
-            
+
             <div className="text-center mt-4">
               <input
                 type="file"
@@ -281,8 +390,8 @@ const MriAnalysisTab = () => {
                 onChange={handleFileChange}
               />
               <label htmlFor="mri-upload">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="mr-2"
                   onClick={() => document.getElementById("mri-upload")?.click()}
                 >
@@ -290,8 +399,8 @@ const MriAnalysisTab = () => {
                   Upload Image
                 </Button>
               </label>
-              
-              <Button 
+
+              <Button
                 onClick={handleAnalyze}
                 disabled={!selectedFile || !selectedType || analyzing}
                 className="bg-primary hover:bg-primary/90"
@@ -300,33 +409,38 @@ const MriAnalysisTab = () => {
               </Button>
             </div>
           </div>
-          
+
           <div className="text-sm text-gray-500">
-            <p><strong>For best results:</strong> Upload a clear MRI image in DICOM format if possible, or a high-quality JPEG/PNG of the scan.</p>
+            <p>
+              <strong>For best results:</strong> Upload a clear MRI image in
+              DICOM format if possible, or a high-quality JPEG/PNG of the scan.
+            </p>
           </div>
         </CardContent>
       </Card>
-      
+
       <Card>
         <CardContent className="p-6">
           <h2 className="text-xl font-semibold mb-6">MRI Analysis Results</h2>
-          
+
           {results ? (
-            <div>
-              <div className="p-4 bg-blue-50 border border-blue-100 rounded-lg mb-6">
-                <h3 className="font-medium text-gray-900 mb-2">AI Assessment</h3>
-                <p className="text-gray-700">{results}</p>
+            <div className="mb-6">
+              <div
+                className={`p-4 border rounded-lg ${
+                  isCancer
+                    ? "bg-red-50 border-red-200 text-red-800"
+                    : "bg-green-50 border-green-200 text-green-800"
+                }`}
+              >
+                <p className="font-semibold">{resultMessage}</p>
+                <div className={`mt-2 p-2 rounded-md ${riskColor}`}>
+                  <p className="font-medium">Risk Level: {riskLevel}</p>
+                  <p className="text-sm">{riskExplanation}</p>
+                </div>
+                <p className="mt-2">{recommendation}</p>
               </div>
-              
-              <div className="p-4 bg-yellow-50 border border-yellow-100 rounded-lg mb-6">
-                <h3 className="font-medium text-gray-900 mb-2">Important Note</h3>
-                <p className="text-gray-700">
-                  This AI analysis is intended as a preliminary assessment only. It should not replace professional medical evaluation.
-                </p>
-              </div>
-              
-              <Button className="w-full bg-primary hover:bg-primary/90">
-                Consult with a Specialist
+              <Button className="w-full mt-4 bg-primary hover:bg-primary/90">
+                Get Professional Consultation
               </Button>
             </div>
           ) : (
@@ -345,14 +459,27 @@ const MriAnalysisTab = () => {
   );
 };
 
+const getRiskLevel = (class_label: string, confidence: number) => {
+  if (class_label === "Normal") {
+    return {
+      level: "Low",
+      color: "bg-green-100 text-green-800 border-green-200",
+    };
+  } else {
+    return confidence >= 0.8
+      ? { level: "High", color: "bg-red-100 text-red-800 border-red-200" }
+      : { level: "Low", color: "bg-green-100 text-green-800 border-green-200" };
+  }
+};
+
 const CtAnalysisTab = () => {
   // Similar implementation as MRI tab with CT-specific content
   return (
     <div className="text-center py-12">
       <h2 className="text-xl font-semibold">CT Scan Analysis Coming Soon</h2>
       <p className="text-gray-600 mt-2">
-        We're currently enhancing our CT scan analysis capabilities.
-        Please check back soon for this feature.
+        We're currently enhancing our CT scan analysis capabilities. Please
+        check back soon for this feature.
       </p>
     </div>
   );
