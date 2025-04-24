@@ -249,7 +249,7 @@ const ChatbotPage = () => {
             <h1 className="text-3xl font-bold">Chat Bot / General Care</h1>
             <Button
               onClick={handleNewChat}
-              className="bg-secondary hover:bg-secondary/90"
+              className=" hover:bg-gray-600"
               disabled={isLoading}
             >
               <RefreshCw className="h-4 w-4 mr-2" />
