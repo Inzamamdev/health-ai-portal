@@ -26,6 +26,7 @@ const MedicalReportPage = () => {
 
     try {
       // Check if user is authenticated
+
       const { data: sessionData } = await supabase.auth.getSession();
 
       if (!sessionData.session) {
@@ -37,29 +38,23 @@ const MedicalReportPage = () => {
       const formData = new FormData();
       formData.append("image", selectedFile);
       console.log(formData);
-      try {
-        const response = await fetch(`${SERVER_URL}/reports`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${sessionData.session?.access_token}`,
-          },
-          body: formData,
-        });
 
-        if (!response.ok) {
-          throw new Error(`Error calling AI analysis: ${response.statusText}`);
-        }
+      const response = await fetch(`${SERVER_URL}/reports`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionData.session?.access_token}`,
+        },
+        body: formData,
+      });
 
-        const data = await response.json();
-        setAnalysis(data.generatedText);
-        toast.success("Report analyzed successfully");
-      } catch (error) {
-        console.error("Error analyzing report:", error);
-        toast.error("Failed to analyze report. Please try again later.");
-      } finally {
-        setUploading(false);
+      if (!response.ok) {
+        throw new Error(`Error calling AI analysis: ${response.statusText}`);
       }
+
+      const data = await response.json();
+      setAnalysis(data.generatedText);
+      toast.success("Report analyzed successfully");
     } catch (error) {
       console.error("Error processing file:", error);
       toast.error("Error processing file");
