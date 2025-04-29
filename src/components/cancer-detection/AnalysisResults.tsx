@@ -79,26 +79,14 @@ const AnalysisResults = ({ type, error }: AnalysisResultsProps) => {
 
 const getRiskLevel = (class_label: string, confidence: number) => {
   if (class_label === "Normal") {
-    return confidence >= 0.7
-      ? { level: "Low", color: "bg-green-100 text-green-800 border-green-200" }
-      : {
-          level: "Moderate",
-          color: "bg-yellow-100 text-yellow-800 border-yellow-200",
-        };
+    return {
+      level: "Low",
+      color: "bg-green-100 text-green-800 border-green-200",
+    };
   } else {
-    if (confidence >= 0.8) {
-      return { level: "High", color: "bg-red-100 text-red-800 border-red-200" };
-    } else if (confidence >= 0.5) {
-      return {
-        level: "Moderate",
-        color: "bg-yellow-100 text-yellow-800 border-yellow-200",
-      };
-    } else {
-      return {
-        level: "Low",
-        color: "bg-green-100 text-green-800 border-green-200",
-      };
-    }
+    return confidence >= 0.5
+      ? { level: "High", color: "bg-red-100 text-red-800 border-red-200" }
+      : { level: "Low", color: "bg-green-100 text-green-800 border-green-200" };
   }
 };
 

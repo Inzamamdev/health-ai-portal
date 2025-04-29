@@ -84,24 +84,21 @@ def predict_image(model, image_array, cancer_type="oral"):
         if cancer_type == "oral":
             # TensorFlow oral cancer prediction
             predictions = model.predict(image_array)
-            confidence = float(predictions[0][1])  # Assuming binary classification
-            class_label = "Oral Cancer" if confidence > 0.5 else "Normal"
+            print(predictions)
+            confidence = float(predictions[0][0])  # Assuming binary classification
+            class_label = "Oral Cancer" if confidence < 0.5 else "Normal"
         elif cancer_type == "skin":
             # TensorFlow skin cancer prediction
             predictions = model.predict(image_array)
-            print(predictions)
             confidence = float(predictions[0][0])  # Assuming binary classification
-            print(confidence)
             class_label = "Skin Cancer" if confidence > 0.5 else "Normal"
         elif cancer_type == "brain":
             # Make a prediction
          predictions = model.predict(image_array)
-         print(predictions)
          predicted_class_index = np.argmax(predictions, axis=1)[0]
          confidence = float(np.max(predictions, axis=1)[0])
          class_labels = ['pituitary', 'glioma', 'notumor', 'meningioma']
          class_label = class_labels[predicted_class_index] if class_labels[predicted_class_index]!= 'notumor' else "Normal"
-         print(predicted_class_index)
 
         elif cancer_type == "chest":
              # Make a prediction

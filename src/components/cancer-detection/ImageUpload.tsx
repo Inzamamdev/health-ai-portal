@@ -24,7 +24,7 @@ const ImageUpload = ({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropZoneRef = useRef<HTMLDivElement>(null);
-  console.log(selectedFile);
+  console.log(modelUrl);
   const allowedFileTypes =
     type === "breast"
       ? ["image/dicom", "image/png", "image/jpeg"]
