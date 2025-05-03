@@ -7,14 +7,58 @@ import torch.nn as nn
 import os
 import torch
 import keras
+from dotenv import load_dotenv
+load_dotenv()
+
 app = Flask(__name__)
 # Enable CORS for the frontend origin
-CORS(app, resources={r"/predict": {"origins": "http://localhost:8080"}})
-ORAL_MODEL_PATH = "oral_fixed.h5"
-BREAST_MODEL_PATH = "breast.pth"
-SKIN_MODEL_PATH = "skin.h5"
-MRI_MODEL = "new_mrimodel.h5"
-X_RAY_MODEL = "x_ray.h5"
+CORS(app, resources={r"/predict": {"origins": os.getenv("FRONTEND_URL")}})
+
+
+import requests
+
+def download_if_not_exists(url, local_path):
+    if not os.path.exists(local_path):
+        print(f"Downloading {local_path} from {url}")
+        response = requests.get(url)
+        if response.status_code == 200:
+            with open(local_path, "wb") as f:
+                f.write(response.content)
+        else:
+            raise Exception(f"Failed to download {local_path}: {response.status_code}")
+
+
+
+os.makedirs("models", exist_ok=True)
+
+download_if_not_exists(
+    os.getenv("ORAL_MODEL"),
+    "models/oral_fixed.h5"
+)
+download_if_not_exists(
+    os.getenv("BREAST_MODEL"),
+    "models/breast.pth"
+)
+download_if_not_exists(
+    os.getenv("SKIN_MODEL"),
+    "models/skin.h5"
+)
+download_if_not_exists(
+    os.getenv("MRI_MODEL"),
+    "models/new_mrimodel.h5"
+)
+download_if_not_exists(
+    os.getenv("XRAY_MODEL"),
+    "models/x_ray.h5"
+)
+
+
+
+ORAL_MODEL_PATH = "models/oral_fixed.h5"
+BREAST_MODEL_PATH = "models/breast.pth"
+SKIN_MODEL_PATH = "models/skin.h5"
+MRI_MODEL = "models/new_mrimodel.h5"
+X_RAY_MODEL = "models/x_ray.h5"
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
