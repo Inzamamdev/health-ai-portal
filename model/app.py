@@ -10,6 +10,7 @@ import keras
 from dotenv import load_dotenv
 load_dotenv()
 
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 app = Flask(__name__)
 # Enable CORS for the frontend origin
 CORS(app, resources={r"/predict": {"origins": os.getenv("FRONTEND_URL")}})
@@ -64,7 +65,7 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Load TensorFlow model for oral cancer
 try:
-    oral_model = tf.keras.models.load_model(ORAL_MODEL_PATH)
+    oral_model = tf.keras.models.load_model(ORAL_MODEL_PATH, compile=False)
     print("Oral cancer model loaded successfully")
 except Exception as e:
     print(f"Error loading oral cancer model: {e}")
@@ -98,7 +99,7 @@ except Exception as e:
 
 # Load TensorFlow model for skin cancer
 try:
-    skin_model = tf.keras.models.load_model(SKIN_MODEL_PATH)
+    skin_model = tf.keras.models.load_model(SKIN_MODEL_PATH, compile=False)
     print("Skin cancer model loaded successfully")
 except Exception as e:
     print(f"Error loading skin cancer model: {e}")
@@ -106,14 +107,14 @@ except Exception as e:
 
 # Load TensorFlow model for MRI
 try:
-    mri_model = tf.keras.models.load_model(MRI_MODEL)
+    mri_model = tf.keras.models.load_model(MRI_MODEL, compile=False)
     print("MRI model loaded successfully")
 except Exception as e:
     print(f"Error loading skin cancer model: {e}")
     exit(1)
 
 try:
-    xray_model = tf.keras.models.load_model(X_RAY_MODEL)
+    xray_model = tf.keras.models.load_model(X_RAY_MODEL, compile=False)
     print("XRAY model loaded successfully")
 except Exception as e:
     print(f"Error loading skin cancer model: {e}")
