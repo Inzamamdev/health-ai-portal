@@ -10,6 +10,13 @@ import keras
 from dotenv import load_dotenv
 load_dotenv()
 
+
+gpus = tf.config.list_physical_devices('GPU')
+if gpus:
+    try:
+        tf.config.experimental.set_memory_growth(gpus[0], True)
+    except RuntimeError as e:
+        print(e)
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
 app = Flask(__name__)
 # Enable CORS for the frontend origin
