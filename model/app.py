@@ -10,7 +10,7 @@ import keras
 from dotenv import load_dotenv
 load_dotenv()
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+os.environ["CUDA_VISIBLE_DEVICES"] = ""
 app = Flask(__name__)
 # Enable CORS for the frontend origin
 CORS(app, resources={r"/predict": {"origins": os.getenv("FRONTEND_URL")}})
