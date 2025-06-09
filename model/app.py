@@ -35,68 +35,68 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-def download_if_not_exists(url, local_path):
-    if not os.path.exists(local_path):
-        print(f"Downloading {local_path} from {url}")
-        response = requests.get(url)
-        if response.status_code == 200:
-            with open(local_path, "wb") as f:
-                f.write(response.content)
-        else:
-            raise Exception(f"Failed to download {local_path}: {response.status_code}")
+# def download_if_not_exists(url, local_path):
+#     if not os.path.exists(local_path):
+#         print(f"Downloading {local_path} from {url}")
+#         response = requests.get(url)
+#         if response.status_code == 200:
+#             with open(local_path, "wb") as f:
+#                 f.write(response.content)
+#         else:
+#             raise Exception(f"Failed to download {local_path}: {response.status_code}")
 
-# Create model directory
-os.makedirs("models", exist_ok=True)
+# # Create model directory
+# os.makedirs("models", exist_ok=True)
 
-# Download model files if not present
-download_if_not_exists(os.getenv("ORAL_MODEL"), "models/oral_fixed.h5")
-download_if_not_exists(os.getenv("BREAST_MODEL"), "models/breast.pth")
-download_if_not_exists(os.getenv("SKIN_MODEL"), "models/skin.h5")
-download_if_not_exists(os.getenv("MRI_MODEL"), "models/new_mrimodel.h5")
-download_if_not_exists(os.getenv("XRAY_MODEL"), "models/x_ray.h5")
+# # Download model files if not present
+# download_if_not_exists(os.getenv("ORAL_MODEL"), "models/oral_fixed.h5")
+# download_if_not_exists(os.getenv("BREAST_MODEL"), "models/breast.pth")
+# download_if_not_exists(os.getenv("SKIN_MODEL"), "models/skin.h5")
+# download_if_not_exists(os.getenv("MRI_MODEL"), "models/new_mrimodel.h5")
+# download_if_not_exists(os.getenv("XRAY_MODEL"), "models/x_ray.h5")
 
 # Paths
 ORAL_MODEL_PATH = "models/oral_fixed.h5"
-BREAST_MODEL_PATH = "models/breast.pth"
-SKIN_MODEL_PATH = "models/skin.h5"
-MRI_MODEL_PATH = "models/new_mrimodel.h5"
-XRAY_MODEL_PATH = "models/x_ray.h5"
+# BREAST_MODEL_PATH = "models/breast.pth"
+# SKIN_MODEL_PATH = "models/skin.h5"
+# MRI_MODEL_PATH = "models/new_mrimodel.h5"
+# XRAY_MODEL_PATH = "models/x_ray.h5"
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Load TensorFlow models
 oral_model = tf.keras.models.load_model(ORAL_MODEL_PATH, compile=False)
-skin_model = tf.keras.models.load_model(SKIN_MODEL_PATH, compile=False)
-mri_model = tf.keras.models.load_model(MRI_MODEL_PATH, compile=False)
-xray_model = tf.keras.models.load_model(XRAY_MODEL_PATH, compile=False)
+# skin_model = tf.keras.models.load_model(SKIN_MODEL_PATH, compile=False)
+# mri_model = tf.keras.models.load_model(MRI_MODEL_PATH, compile=False)
+# xray_model = tf.keras.models.load_model(XRAY_MODEL_PATH, compile=False)
 
 # Load PyTorch FLAVA model
-model_name = "facebook/flava-full"
-processor = FlavaProcessor.from_pretrained(model_name)
-flava_model = FlavaModel.from_pretrained(model_name).to(DEVICE)
+# model_name = "facebook/flava-full"
+# processor = FlavaProcessor.from_pretrained(model_name)
+# flava_model = FlavaModel.from_pretrained(model_name).to(DEVICE)
 
-class FlavaClassifier(nn.Module):
-    def __init__(self, model, num_classes=2):
-        super(FlavaClassifier, self).__init__()
-        self.flava = model
-        self.classifier = nn.Linear(768, num_classes)
+# class FlavaClassifier(nn.Module):
+#     def __init__(self, model, num_classes=2):
+#         super(FlavaClassifier, self).__init__()
+#         self.flava = model
+#         self.classifier = nn.Linear(768, num_classes)
 
-    def forward(self, pixel_values):
-        outputs = self.flava(pixel_values=pixel_values)
-        image_embedding = outputs.image_embeddings[:, 0, :]
-        logits = self.classifier(image_embedding)
-        return logits
+#     def forward(self, pixel_values):
+#         outputs = self.flava(pixel_values=pixel_values)
+#         image_embedding = outputs.image_embeddings[:, 0, :]
+#         logits = self.classifier(image_embedding)
+#         return logits
 
-breast_model = FlavaClassifier(flava_model).to(DEVICE)
-breast_model.load_state_dict(torch.load(BREAST_MODEL_PATH, map_location=DEVICE))
-breast_model.eval()
+# breast_model = FlavaClassifier(flava_model).to(DEVICE)
+# breast_model.load_state_dict(torch.load(BREAST_MODEL_PATH, map_location=DEVICE))
+# breast_model.eval()
 
 # Store models in a dict
 MODELS: Dict[str, Dict] = {
     "oral": {"type": "tensorflow", "model": oral_model},
-    "breast": {"type": "pytorch", "model": breast_model},
-    "skin": {"type": "tensorflow", "model": skin_model},
-    "brain": {"type": "tensorflow", "model": mri_model},
-    "chest": {"type": "tensorflow", "model": xray_model},
+    # "breast": {"type": "pytorch", "model": breast_model},
+    # "skin": {"type": "tensorflow", "model": skin_model},
+    # "brain": {"type": "tensorflow", "model": mri_model},
+    # "chest": {"type": "tensorflow", "model": xray_model},
 }
 
 @app.post("/predict")
