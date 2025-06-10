@@ -1,5 +1,1 @@
-new_mrimodel.h5
-skin.h5
-x_ray.h5
-
-*.pth
+breast.onnx
