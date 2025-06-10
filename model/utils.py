@@ -6,10 +6,6 @@ except ImportError:
     pydicom = None
 
 
-
-
-
-
 def preprocess_image(image_file, image, cancer_type="oral"):
     try:
         if cancer_type == "breast" and image.content_type == "image/dicom":
