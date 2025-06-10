@@ -1,20 +1,14 @@
-import tensorflow as tf
 from PIL import Image
 import numpy as np
 try:
     import pydicom
 except ImportError:
     pydicom = None
-import torch
-from torchvision import transforms
 
 
-# Define transforms for breast cancer (PyTorch)
-BREAST_TRANSFORMS = transforms.Compose([
-    transforms.Resize((224, 224)), 
-    transforms.ToTensor(),  # Convert to tensor and normalize to [0, 1]
-    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # ImageNet normalization
-])
+
+
+
 
 def preprocess_image(image_file, image, cancer_type="oral"):
     try:
@@ -39,9 +33,11 @@ def preprocess_image(image_file, image, cancer_type="oral"):
             image_array = np.expand_dims(image_array, axis=0)  # Add batch dimension
             return image_array
         elif cancer_type == "breast":
-            image_tensor = BREAST_TRANSFORMS(image)
-            image_tensor = image_tensor.unsqueeze(0)  # Add batch dimension
-            return image_tensor
+            image = image.resize((224, 224), Image.LANCZOS)
+            image_array = np.array(image).astype(np.float32) / 255.0  # Normalize to [0, 1]
+            image_array = image_array.transpose(2, 0, 1)  # Convert HWC -> CHW
+            image_array = np.expand_dims(image_array, axis=0)  # Add batch dimension -> (1, 3, 224, 224)
+            return image_array
         elif cancer_type == "brain":
             image = image.resize((128, 128), Image.LANCZOS)  # Adjust size as needed
             image_array = np.array(image) / 255.0  # Normalize to [0, 1]
@@ -60,40 +56,56 @@ def preprocess_image(image_file, image, cancer_type="oral"):
 def predict_image(model, image_array, cancer_type="oral"):
     try:
         if cancer_type == "oral":
-            predictions = model.predict(image_array)
-            print("oral",predictions)
-            class_label = "Oral Cancer" if float(predictions[0][0])  < 0.5 else "Normal"
-            confidence = float(predictions[0][0])  if class_label == "Normal" else 1 - float(predictions[0][0]) 
+            input_name = model.get_inputs()[0].name
+            output_name = model.get_outputs()[0].name
+            predictions = model.run([output_name], {input_name: image_array.astype(np.float32)})
+            class_label = "Oral Cancer" if float(predictions[0][0][0]) < 0.5 else "Normal"
+            confidence = float(predictions[0][0][0]) if class_label == "Normal" else 1 - float(predictions[0][0][0])
+
         elif cancer_type == "skin":
-            predictions = model.predict(image_array)
-            predicted_class_index = np.argmax(predictions, axis=1)[0]
-            confidence = float(np.max(predictions, axis=1)[0])
-            class_labels = [ 'melanoma',  'pigmented benign keratosis',  'vascular lesion',  'actinic keratosis',  'squamous cell carcinoma', 'basal cell carcinoma', 'seborrheic keratosis','dermatofibroma','nevus']
-            class_label = class_labels[predicted_class_index] 
+            input_name = model.get_inputs()[0].name
+            output_name = model.get_outputs()[0].name
+            predictions = model.run([output_name], {input_name: image_array.astype(np.float32)})
+            predicted_class_index = np.argmax(predictions[0], axis=1)[0]
+            confidence = float(np.max(predictions[0], axis=1)[0])
+            class_labels = [
+                'melanoma', 'pigmented benign keratosis', 'vascular lesion',
+                'actinic keratosis', 'squamous cell carcinoma', 'basal cell carcinoma',
+                'seborrheic keratosis', 'dermatofibroma', 'nevus'
+            ]
+            class_label = class_labels[predicted_class_index]
+
         elif cancer_type == "brain":
-         predictions = model.predict(image_array)
-         print(predictions)
-         predicted_class_index = np.argmax(predictions, axis=1)[0]
-         confidence = float(np.max(predictions, axis=1)[0])
-         class_labels = ['pituitary', 'glioma', 'notumor', 'meningioma']
-         class_label = class_labels[predicted_class_index] if class_labels[predicted_class_index]!= 'notumor' else "Normal"
+            input_name = model.get_inputs()[0].name
+            output_name = model.get_outputs()[0].name
+            predictions = model.run([output_name], {input_name: image_array.astype(np.float32)})
+            predicted_class_index = np.argmax(predictions[0], axis=1)[0]
+            confidence = float(np.max(predictions[0], axis=1)[0])
+            class_labels = ['pituitary', 'glioma', 'notumor', 'meningioma']
+            class_label = class_labels[predicted_class_index] if class_labels[predicted_class_index] != 'notumor' else "Normal"
 
         elif cancer_type == "chest":
-         predictions = model.predict(image_array)
-         predicted_class_index = np.argmax(predictions, axis=1)[0]
-         confidence = float(np.max(predictions, axis=1)[0])
-         class_labels = ['COVID', 'Normal', 'PNEUMONIA']
-         class_label = class_labels[predicted_class_index]
+            input_name = model.get_inputs()[0].name
+            output_name = model.get_outputs()[0].name
+            predictions = model.run([output_name], {input_name: image_array.astype(np.float32)})
+            predicted_class_index = np.argmax(predictions[0], axis=1)[0]
+            confidence = float(np.max(predictions[0], axis=1)[0])
+            class_labels = ['COVID', 'Normal', 'PNEUMONIA']
+            class_label = class_labels[predicted_class_index]
+
         elif cancer_type == "breast":
-            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            image_tensor = image_array.to(device)
-            model.to(device)
-            with torch.no_grad():
-                outputs = model(image_tensor)
-                probabilities = torch.softmax(outputs, dim=1)
-                confidence, predicted_class = torch.max(probabilities, dim=1)
-                confidence = float(confidence.item())
-                class_label = "Malignant" if predicted_class.item() == 1 else "Benign"
+           image_tensor = image_array.astype(np.float32)
+           input_name = model.get_inputs()[0].name
+           output_name = model.get_outputs()[0].name
+           predictions = model.run([output_name], {input_name: image_tensor})
+           # Convert logits to probabilities using softmax
+           logits = predictions[0][0]  # shape: (2,)
+           exp_logits = np.exp(logits - np.max(logits))  # for numerical stability
+           probabilities = exp_logits / np.sum(exp_logits)
+
+           predicted_class = int(np.argmax(probabilities))
+           confidence = float(np.max(probabilities))
+           class_label = "Malignant" if predicted_class == 1 else "Benign"
         else:
             raise Exception(f"Unsupported cancer type: {cancer_type}")
 
