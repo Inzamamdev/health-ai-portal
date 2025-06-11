@@ -72,6 +72,11 @@ async def predict(
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
+# health check by digital ocean
+@app.get("/health")
+async def health_check():
+    return {"status": "ok"}
+
 # Uvicorn command will run this file
 if __name__ == "__main__":
     os.makedirs("uploads", exist_ok=True)
