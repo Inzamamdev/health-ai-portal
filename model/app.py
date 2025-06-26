@@ -81,4 +81,4 @@ async def health_check():
 # Uvicorn command will run this file
 if __name__ == "__main__":
     os.makedirs("uploads", exist_ok=True)
-    uvicorn.run("app:app", host="0.0.0.0", port=5000, reload=True)
+    uvicorn.run("app:app", host="0.0.0.0", port=8080, reload=True)
