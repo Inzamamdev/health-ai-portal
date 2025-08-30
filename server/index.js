@@ -70,12 +70,17 @@ app.post("/ai-analysis", async (req, res) => {
         },
         { role: "user", content: enhancedPrompt },
       ],
+      stream: true,
     });
 
-    const generatedText =
-      response.choices[0].message.content || "No response available.";
+    for await (const chunk of response) {
+      const delta = chunk.choices[0]?.delta?.content || "";
+      if (delta) {
+        res.write(`${delta}`); // send to client as SSE
+      }
+    }
 
-    res.json({ generatedText });
+    res.end();
   } catch (error) {
     console.error("Error:", error);
     res.status(500).json({ error: error.message });

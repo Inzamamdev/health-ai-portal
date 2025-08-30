@@ -157,6 +157,18 @@ const ChatbotPage = () => {
       }
       const accessToken = sessionData.session.access_token;
 
+      const assistantIndex = messages.length + 1; // position in array
+      // setMessages((prev) => [
+      //   ...prev,
+      //   {
+      //     content: "...",
+      //     role: "assistant" as const,
+      //     timestamp: new Date().toLocaleTimeString([], {
+      //       hour: "2-digit",
+      //       minute: "2-digit",
+      //     }),
+      //   },
+      // ]);
       // Call Node.js server
       const response = await fetch(`${SERVER_URL}/ai-analysis`, {
         method: "POST",
@@ -175,8 +187,11 @@ const ChatbotPage = () => {
         throw new Error(`Failed to get AI response: ${response.statusText}`);
       }
 
-      const data = await response.json();
+      const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let result = "";
       // Save user message to database
       const { error: userMessageError } = await supabase
         .from("chat_history")
@@ -186,26 +201,29 @@ const ChatbotPage = () => {
       }
 
       // Create AI response message
-      const newAIMessage = {
-        content: data.generatedText,
-        role: "assistant" as const,
-        timestamp: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-      };
+      while (true) {
+        const { done, value } = await reader.read();
+        if (value) setIsLoading(false);
+        if (done) break;
+        result += decoder.decode(value, { stream: true });
+        await delay(100);
+        setMessages((prev) => {
+          const updated = [...prev];
+          updated[assistantIndex] = {
+            ...updated[assistantIndex],
+            content: result,
+          };
+          return updated;
+        });
+      }
 
       // Save AI response to database
       const { error: aiMessageError } = await supabase
         .from("chat_history")
-        .insert([
-          { role: "assistant", content: data.generatedText, user_id: user.id },
-        ]);
+        .insert([{ role: "assistant", content: result, user_id: user.id }]);
       if (aiMessageError) {
         console.error("Error saving AI message:", aiMessageError);
       }
-
-      setMessages((prevMessages) => [...prevMessages, newAIMessage]);
     } catch (error) {
       console.error("Error sending message:", error);
       toast.error("Failed to get a response. Please try again.");
@@ -221,8 +239,6 @@ const ChatbotPage = () => {
       };
 
       setMessages((prevMessages) => [...prevMessages, errorMessage]);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -344,6 +360,19 @@ const ChatbotPage = () => {
                       </div>
                     </div>
                   ))}
+                  {isLoading && (
+                    <div className="flex justify-start">
+                      <div className="max-w-[80%] rounded-lg p-4 bg-gray-100 text-gray-800">
+                        <div className="text-sm animate-pulse">...</div>
+                        <div className="text-xs mt-1 text-gray-500">
+                          {new Date().toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Fixed Input Section */}

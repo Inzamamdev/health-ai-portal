@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { AlertCircle } from "lucide-react";
 import { useResults } from "@/context/ResultsContext";
 import { useEffect } from "react";
-
+import { Link } from "react-router-dom";
 interface AnalysisResultsProps {
   type: string;
   error: string;
@@ -70,9 +70,11 @@ const AnalysisResults = ({ type, error }: AnalysisResultsProps) => {
         </div>
         <p className="mt-2">{recommendation}</p>
       </div>
-      <Button className="w-full mt-4 bg-primary hover:bg-primary/90">
-        Get Professional Consultation
-      </Button>
+      <Link to="/view-clinic">
+        <Button className="w-full mt-4 bg-primary hover:bg-primary/90">
+          Get Professional Consultation
+        </Button>
+      </Link>
     </div>
   );
 };
