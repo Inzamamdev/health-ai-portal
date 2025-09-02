@@ -101,6 +101,9 @@ function ClinicPage() {
     setUrl(url);
   };
 
+  console.log("places", places);
+  console.log("activeplace", activePlace);
+  console.log("direction", directions);
   return (
     <div style={{ width: "100vw", height: "100vh" }}>
       <APIProvider apiKey={API_KEY} libraries={["places"]}>
