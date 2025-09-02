@@ -100,7 +100,7 @@ function ClinicPage() {
     setDuration(leg.duration?.text);
     setUrl(url);
   };
-  console.log(googleMapsUrl);
+
   return (
     <div style={{ width: "100vw", height: "100vh" }}>
       <APIProvider apiKey={API_KEY} libraries={["places"]}>

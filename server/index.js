@@ -9,7 +9,12 @@ import cloudinary from "./cloudinaryConfig.js";
 dotenv.config();
 
 const app = express();
-app.use(cors({ origin: `${process.env.CLIENT_API_URL}` }));
+app.use(
+  cors({
+    origin: `${process.env.CLIENT_API_URL}`,
+    methods: ["GET", "POST", "PUT", "DELETE"],
+  })
+);
 app.use(express.json());
 
 const openai = new OpenAI({
