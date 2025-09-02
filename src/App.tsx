@@ -11,7 +11,7 @@ import ChatbotPage from "./pages/ChatbotPage";
 import CancerDetectionPage from "./pages/CancerDetectionPage";
 import MedicalReportPage from "./pages/MedicalReportPage";
 import XrayMriPage from "./pages/XrayMriPage";
-import HospitalsPage from "./pages/HospitalsPage";
+import ClicnicPage from "./pages/ClinicPage";
 import NotFound from "./pages/NotFound";
 import { ResultsProvider } from "./context/ResultsContext";
 
@@ -41,7 +41,7 @@ const App = () => (
             />
             <Route path="/medical-reports" element={<MedicalReportPage />} />
             <Route path="/xray-mri" element={<XrayMriPage />} />
-            <Route path="/hospitals" element={<HospitalsPage />} />
+            <Route path="/view-clinic/:type" element={<ClicnicPage />} />
           </Route>
         </Routes>
       </BrowserRouter>

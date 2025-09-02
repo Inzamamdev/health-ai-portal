@@ -70,7 +70,7 @@ const AnalysisResults = ({ type, error }: AnalysisResultsProps) => {
         </div>
         <p className="mt-2">{recommendation}</p>
       </div>
-      <Link to="/view-clinic">
+      <Link to={`/view-clinic/${type}`}>
         <Button className="w-full mt-4 bg-primary hover:bg-primary/90">
           Get Professional Consultation
         </Button>

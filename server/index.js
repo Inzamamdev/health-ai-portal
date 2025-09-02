@@ -157,4 +157,14 @@ app.post("/reports", upload.single("image"), async (req, res) => {
   }
 });
 
+app.get("/nearby", async (req, res) => {
+  const { lat, lng, type } = req.query;
+  const url = `${process.env.PLACES_BASE_URL}?location=${lat},${lng}&radius=5000&type=${type} cancer hospital&keyword=${type} cancer hospital near me&key=${process.env.GOOGLE_MAPS_API_KEY}`;
+
+  const response = await fetch(url);
+  const data = await response.json();
+
+  res.json(data);
+});
+
 app.listen(8000, () => console.log("Server running on port 8000"));
