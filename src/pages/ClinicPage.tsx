@@ -156,24 +156,29 @@ function ClinicPage() {
                 onCloseClick={() => setActivePlace(null)}
               >
                 <div
-                  className="font-bold"
+                  className="cursor-pointer w-64 sm:w-72 md:w-80 rounded-xl overflow-hidden shadow-lg bg-white"
                   onClick={() => window.open(googleMapsUrl)}
                 >
-                  <img
-                    width="100%"
-                    height="100%"
-                    src={`https://maps.googleapis.com/maps/api/place/photo?maxwidth=500&photo_reference=${activePlace.place.photos[0].photo_reference}&key=${API_KEY}`}
-                    alt="Image not found"
-                  />
-                  <div className=" mt-2">
-                    <h2 className=" text-xl">
-                      Hospital Name: {activePlace.place.name}
+                  <div className="w-full h-40 sm:h-48 md:h-56 overflow-hidden">
+                    <img
+                      src={`https://maps.googleapis.com/maps/api/place/photo?maxwidth=500&photo_reference=${activePlace.place.photos[0].photo_reference}&key=${API_KEY}`}
+                      alt="Hospital"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="p-3 space-y-2">
+                    <h2 className="text-lg font-semibold text-gray-800">
+                      {activePlace.place.name}
                     </h2>
-                    <p className="">
-                      Hospital Address: {activePlace.place.vicinity}
+                    <p className="text-sm text-gray-600">
+                      {activePlace.place.vicinity}
                     </p>
-                    <p>Distance: {distance}</p>
-                    <p>Duration: {duration}</p>
+                    <p className="text-sm text-gray-700">
+                      Distance: {distance}
+                    </p>
+                    <p className="text-sm text-gray-700">
+                      Duration: {duration}
+                    </p>
                   </div>
                 </div>
               </InfoWindow>
