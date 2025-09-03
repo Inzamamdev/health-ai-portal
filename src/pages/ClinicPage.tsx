@@ -7,6 +7,7 @@ import {
   Marker,
   AdvancedMarker,
   InfoWindow,
+  Pin,
 } from "@vis.gl/react-google-maps";
 type PlaceResult = google.maps.places.PlaceResult;
 
@@ -101,9 +102,6 @@ function ClinicPage() {
     setUrl(url);
   };
 
-  console.log("places", places);
-  console.log("activeplace", activePlace);
-  console.log("direction", directions);
   return (
     <div style={{ width: "100vw", height: "100vh" }}>
       <APIProvider apiKey={API_KEY} libraries={["places"]}>
@@ -117,7 +115,18 @@ function ClinicPage() {
             disableDefaultUI={false}
           >
             {/* User location marker */}
-            <Marker position={center} />
+            <AdvancedMarker position={center}>
+              <div
+                style={{
+                  width: "16px",
+                  height: "16px",
+                  borderRadius: "50%",
+                  background: "#4285F4", // Blue fill
+                  border: "3px solid white", // White outline
+                  boxShadow: "0 0 6px rgba(66,133,244,0.8)", // Glow effect
+                }}
+              />
+            </AdvancedMarker>
 
             {/* Query result markers */}
             {places.map((place, idx) => (
